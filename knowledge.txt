@@ -1,0 +1,231 @@
+The last human bottleneck in crypto. Solved.
+
+Every protocol you’ve used secretly depended on a human to keep running. Fermah Kernel ends that dependency.
+
+[WHAT IS FERMAH]
+Fermah is the programmable, async compute infra - powering next-gen apps, starting with Flashcast with the use of kernel
+
+How to contact fermah?
+@fermah_xyz on X
+
+How to contact Flashcast
+@flashcastsocial on X
+
+[KERNEL]
+Kernel is the workflow execution engine that powers our products. We didn't name it after a mathematician this time. We named it after what it is. The kernel of every system Fermah ships. The same engine that resolves prediction markets in Flashcast Social, orchestrates proving pipelines in Fermah Froben, and will sit underneath every future product we build. One engine, many surfaces.
+
+[FROBEN]
+Froben is a two-sided marketplace for proof generation. The supply side consists of machines with cost efficient GPUs and CPUs. The demand side is any instance in which ZK is used.
+
+The Fermah Matchmaker aligns supply and demand, routing workloads efficiently while ensuring competitive pricing.
+
+[FLASHCAST]
+Flashcast Social is a prediction market product where the markets themselves are generated from natural language. A user posts a question, something like "will Argentina win the World Cup in 2026?" or "will this token trade above its current price one week from now?" or "will this YouTube video pass one million views by Friday?", and within seconds there's a live market, with a defined resolution rule, a price discovery mechanism, and a settlement path. The user didn't specify how the market should resolve. They didn't point to a data source. They didn't write a workflow. They wrote a sentence.
+
+
+Fermah is Backed by:
+The Best,
+a16z Crypto,
+Lemniscap,
+Bankless Ventures,
+Lambda Class,
+V3locity,
+Daedalus,
+ZKV,
+Public Works,
+ZeroDAO,
+Pops,
+LongHash Ventures,
+Claire Kart,
+
+Fermah Full Team:
+CMO, Aztec
+Balaji Srinivasan, 
+Former Coinbase CTO and a16z General Partner
+Mustafa Al-Bassam, 
+CEO and Cofounder, Celestia
+Sandeep Nailwal, 
+Founder, Polygon
+Nick White, 
+COO, Celestia
+Gregoire Le Jeune, 
+Cofounder, Geometry
+Sergey Gurbanov, 
+Cofounder, Axelar
+Jaynti Kanani, 
+Cofounder, Polygon and Mozak
+Daniel Lubarov, 
+Cofounder, Polygon Zero
+Zac Williamson, 
+Founder and CEO, Aztec
+
+How Autonomous Workflow Execution Works
+May 3, 2026
+Maximiliano Priani
+Fermah's solution to the last human-in-the-loop problem in crypto.
+
+Fermah Kernel is the workflow execution engine that powers our products. We didn't name it after a mathematician this time. We named it after what it is. The kernel of every system Fermah ships. The same engine that resolves prediction markets in Flashcast Social, orchestrates proving pipelines in Fermah Froben, and will sit underneath every future product we build. One engine, many surfaces.
+
+This post explains what Fermah Kernel actually does under the hood: how a smart contract request becomes a deterministic, verifiable computation, how arbitrary off-chain logic gets executed safely, and why building this required rethinking what an oracle is supposed to be.
+
+The problem with oracles today
+Oracles are fragile. The pattern is familiar by now: a smart contract needs data from the outside world (a price feed, an event outcome, a piece of API data), so it asks an oracle. In most production systems today, that oracle is one of three things: a multisig of operators voting on the answer, a single trusted feed everyone agrees to trust because the alternative is worse, or a network of nodes running opaque code that nobody can fully audit, where the trust assumption collapses into "this software does what its operators say it does."
+
+None of these can execute arbitrary logic. Ask an oracle to fetch a price and you get a price. Ask it to fetch five prices, take the median, branch on whether the median crosses a threshold, and only then publish a result, and you've left the realm of what oracles can do. You've entered the realm where you build a custom service, run it on a server you own, and ask the smart contract to trust your server.
+
+That last step is where the human-in-the-loop appears. Not as a person clicking a button, but as a person responsible for keeping the server alive, the keys safe, the logic correct, the operator honest. Every protocol you've used has had one of these humans somewhere. They're the reason resolution committees exist, the reason dispute windows exist. They're the substrate of trust that crypto promised to remove and never quite did.
+
+Fermah Kernel removes them. Not by replacing the human with another human, and not by replacing the server with another server, but by replacing the entire pattern with a verifiable computation.
+
+Workflows as the unit of trust
+The core insight behind Fermah Kernel is that off-chain computation, if you constrain it correctly, can be made as trustworthy as on-chain computation. The constraint is determinism, and the mechanism is workflows.
+
+A workflow in Kernel is a directed graph of typed nodes. Each node is a verified building block that does one thing: an HTTP fetch, a median calculation, a price aggregation, a hash, a signature verification, a poll for an event, a write to chain. Nodes compose into graphs, graphs become workflows, and workflows execute as a single deterministic computation. Same inputs, same outputs.
+
+This is the part that took the longest to get right. The challenge isn't building one node, or ten, or a hundred. The challenge is building them so that any composition is itself well-formed. The type system catches mismatches at composition time, before execution: a node that produces a number can't be wired into a node that expects a string, a workflow that branches on a condition has both branches type-checked, a workflow that loops has its termination condition validated. By the time a workflow is ready to run, the only thing that can go wrong is the external world being uncooperative, and even that's handled, deterministically, by the workflow itself.
+
+The other thing the type system enables is composition by AI. Kernel exposes its node library through a standard interface that lets agents discover what's available, ask what each node does, propose compositions, and validate them before execution. That's how a developer can describe a process in natural language and end up with a workflow ready to run, without writing it by hand. The agent composes; the Kernel executes. No LLM in the hot path, no human in the loop.
+
+Case study: a workflow flowing through the system
+Consider a workflow that resolves the question: "did the price of ETH ever cross $3,000 at any point in the next twenty-four hours, according to a majority of three independent sources?" That's the kind of question that today requires a custom service or a resolution committee. In Kernel, it's a workflow.
+
+Step 1: Intent. A smart contract requests the workflow on-chain by referencing a workflow identifier previously registered with the Kernel oracle. The request includes any parameters: the threshold price, the time window, the list of price sources. Payment is escrowed and the Kernel runtime picks up the request.
+
+Step 2: Composition validation. Before any execution begins, the runtime checks that the requested workflow is well-formed: every node recognized, every type matched, every branch reachable, every external call bounded by a timeout. A workflow that fails validation is caught at composition time, before any cost is incurred. It's the cheapest failure mode the system has, and it's where most things go wrong if they're going to.
+
+Step 3: Execution. The runtime runs the workflow inside an isolated environment built for untrusted code. The workflow opens a polling window: every fifteen minutes, three HTTP fetches run in parallel, one to each price source, each with its own retry logic and timeout. A median node aggregates the three sources at every sample point, and a condition node checks whether the median has crossed the threshold. The moment it does, the workflow exits early with a positive result. If the twenty-four-hour window expires without a crossing, it exits negative.
+
+The runtime keeps the workflow alive across the polling window, handles the fan-out at every sample, manages the timeouts and retries, and tracks the early-exit condition. The workflow author wrote the graph; the runtime did the rest.
+
+Step 4: Attestation. The result is hashed, signed, and published on-chain along with a cryptographic proof that the workflow executed exactly as specified. The proof isn't an opinion. It's a verifiable record, checkable by anyone with the workflow definition and the inputs. The smart contract that requested the workflow can now consume the result with the same trust guarantees as a native blockchain operation. No committee voted on it, no operator vouched for it. The math vouches for it.
+
+That's what we mean when we say Kernel is trustless compute for any developer process. The example above is a price feed with conditional logic, but the shape generalizes. A workflow that aggregates social media data, runs a cross-chain bridge check, executes a multi-step DeFi position update, or coordinates a fair raffle is the same kind of object, with the same execution model, attested the same way.
+
+Case study: Flashcast Social
+The example above is illustrative. The next one is real, with the caveat that it shows a different mode of using Kernel, one we'll come back to once the case study is told.
+
+Flashcast Social is a prediction market product where the markets themselves are generated from natural language. A user posts a question, something like "will Argentina win the World Cup in 2026?" or "will this token trade above its current price one week from now?" or "will this YouTube video pass one million views by Friday?", and within seconds there's a live market, with a defined resolution rule, a price discovery mechanism, and a settlement path. The user didn't specify how the market should resolve. They didn't point to a data source. They didn't write a workflow. They wrote a sentence.
+
+What sits between the sentence and the live market is Kernel.
+
+When a user submits a question, the system first asks whether the question matches a known shape: sports outcomes, crypto price thresholds, social-media metrics, that kind of thing. For shapes the system recognizes, a deterministic resolver assembles the workflow directly from a template, no AI involved. For everything else, an AI agent (connected to Kernel through the same standard interface that powers all of its tooling) reads the question and proposes a workflow that would resolve it. The agent doesn't invent the resolution logic from scratch; it composes it from Kernel's existing node library: the price-fetching nodes, the social-media-querying nodes, the sports-API nodes, the median and threshold nodes, the time-window nodes. Its job is to pick the right nodes and wire them together. The type system validates the wiring before anything is persisted.
+
+The composed workflow is then attached to the market. When a market is created, Kernel begins executing the workflow, and it runs until the resolution condition is met or the deadline expires. The result determines the outcome. The workflow that resolves the market was generated from the user's question (or matched against a known template), validated against the type system, and executed deterministically by the same runtime that handles every other workflow in the system. There's no resolution committee deciding what happened, no operator with discretion over the outcome. The composition is the resolution rule, and the rule was fixed the moment the market went live.
+
+This is the part that surprises people the first time they see it. Prediction markets have always had a resolution problem: someone has to decide what happened, and that someone is usually a committee, an oracle network with its own trust assumptions, or the protocol's operators. Flashcast Social doesn't have that someone. The question itself, parsed into a workflow, is the resolution.
+
+The reason this works at all is the constraint we built into Kernel from the start: workflows have to be deterministic and composed from a fixed library of verified primitives. An AI agent composing a workflow isn't given the ability to write arbitrary code. It's given the ability to wire existing nodes together. That space is large enough to cover most of what a prediction market needs to resolve, and small enough that every result it produces is verifiable. The agent's creativity is upstream of the trust boundary. The execution is downstream of it.
+
+A note about deployment modes. Flashcast Social embeds Kernel directly: the workflow runs in-process, alongside the application that requested it. That's one of two ways to deploy Kernel. The other is as a network with on-chain attestation, the way the first case study described. The embedded mode is faster to build with and faster to run; the on-chain mode is what a smart contract needs when it wants to trust the result without trusting the operator. Same engine, same node library, same type system. Different surface, different trust model. Flashcast Social today uses the embedded mode. The on-chain attestation mode is what makes Kernel an oracle, and what powers the use cases described earlier in this post.
+
+The workflow engine
+Underneath both case studies, the substrate is the same. The engine holds the node library, validates compositions, schedules execution, manages timeouts and retries, and produces the final attestation when one is required.
+
+It's not a queue, and the Airflow comparison falls apart pretty fast. What it actually is: a programmable coordinator that runs application-specific logic against a fixed library of primitives, with strong guarantees about what can and can't happen during execution. Workflows are first-class objects: they can be inspected, validated, simulated, and replayed. The same workflow that ran yesterday will run identically today.
+
+The library of nodes is broad on purpose. HTTP and WebSocket calls, on-chain reads across major EVM networks, social feeds, sports APIs, crypto pricing sources, math primitives like median and weighted average, hashing and signing, verifiable randomness, flow control like polling and scheduling and retrying and waiting. The library grows as the use cases we serve grow, and the cost of adding a node is paid once: every future workflow that uses it gets the same guarantees as every past workflow.
+
+The same engine is what coordinates Fermah Froben. Froben is our universal proof market: ZK proof generation jobs distributed across a fleet of GPU operators, with hundreds of parallel circuit-prover tasks fanning out from a single batch request. The shape of that workload is different (massively parallel rather than sequentially composed, dominated by GPU compute rather than HTTP latency), but the execution model is the same one described above. A workflow defines the proving pipeline, the engine schedules the delegations, the runtime tracks the lifecycle. Different surface, same kernel.
+
+The sandboxed runtime
+Workflows run inside an isolated execution environment built for code that the system doesn't need to trust. The runtime gives a workflow access to its inputs, the node library, and a strict set of capabilities: network calls go through controlled paths, no arbitrary file I/O, no access to other workflows in flight. Everything else is denied by default.
+
+This matters because the future of off-chain compute is one where humans aren't the ones writing every workflow. Agents will compose them, as they already do in Flashcast Social. Other systems will request them. The runtime can't assume good intent from the code it executes, so it assumes the opposite and constrains accordingly. Author safely, deploy confidently, run anything.
+
+The runtime is also where determinism becomes enforceable. Inside the sandbox, the only sources of nondeterminism are external calls (bounded by timeouts and retried with explicit policies) and explicitly-randomized nodes (which produce verifiable randomness alongside their output). Everything else is pure computation. Two executions of the same workflow on the same inputs produce the same output.
+
+The on-chain oracle
+The last piece is the part that makes Kernel useful to a smart contract: the on-chain oracle that publishes results, attests to executions, and bridges between Kernel's off-chain runtime and the on-chain world.
+
+The oracle accepts requests from contracts, schedules them for execution by the engine, and publishes results back to the requesting contract along with a cryptographic proof. That proof isn't a multisig of operators agreeing on what happened. It's a verifiable record of the workflow execution itself: the inputs, the node-by-node outputs, the final result, all attested. Anyone with the workflow definition can independently verify the execution was correct. The oracle doesn't ask anyone to trust it; it gives the contract everything it needs to verify the answer for itself.
+
+That's what makes Kernel different from existing oracle networks. It's not a faster oracle, and it's not a cheaper one. Those races are already crowded, and the differences are marginal anyway. It's an oracle that doesn't require trust in its operators to function, because the operators don't have a meaningful way to lie. The output is what the workflow says it is, or the proof doesn't validate.
+
+Why we built this
+Most teams that need off-chain computation today face the same trade-off: build a custom service and ask users to trust you, or accept the limited functionality of existing oracles. Neither option scales. The first compromises the trust model that makes crypto worth using in the first place. The second compromises the surface area of what you can build on-chain.
+
+Fermah Kernel offers a third option: write a workflow, get a verifiable result. The engine handles the orchestration, the runtime handles the safety, the oracle handles the on-chain delivery. The trust model collapses into the math: the workflow ran as specified, the proof says so, and the contract can verify it without asking anyone's permission.
+
+We named it Kernel because it's the kernel of everything Fermah builds. Flashcast Social embeds it. Fermah Froben coordinates through it. Future products will sit on top of it. One engine, embedded everywhere, attesting to every result it produces.
+
+The endomorphism makes the math fast. The Kernel makes the trust unnecessary.
+Fermah Froben is the universal proof marketplace that connects two sides:
+
+Supply side: GPU machines operated by EigenLayer Operators
+Demand side: Any entity requiring zero-knowledge proofs
+The Fermah Matchmaker aligns supply and demand, ensuring efficient allocation of resources while maintaining competitive pricing.
+
+Through Intelligent Orchestration, Fermah optimizes machine utilization. Its Lean Mechanism Design reduces proof generation costs. And with Universal Proving, it works across any proof system, chain, or VM.
+
+Fermah Architecture
+
+Fermah supports zkVMs, zkEVMs, and Groth16 while maintaining credible neutrality.
+
+The platform is optimized for cheap, fast, and reliable ZK-proof generation for diverse cryptographic applications.
+Why Fermah?
+1 min read
+Generating zero-knowledge proofs (ZKPs) is resource intensive. It requires expensive, powerful physical infrastructure. It’s a hurdle for developers to source, deploy, and maintain this infrastructure. And even if they manage to do it, the infrastructure faces a low utilization rate.
+
+The low utilization inflates the cost users need to pay for their proof generation tasks. Furthermore, designing, implementing, and maintaining an optimal incentive structure for such infrastructure is a monstrous task in itself.
+
+Overall, proof generation as it stands today is expensive, slow, and unreliable.
+
+Fermah fixes these problems with Fermah Froben, the universal proof marketplace optimized for cheap, fast, and reliable ZK proof generation.
+
+In Flashcast, currently:
+Share-to-climb the Leaderboard is live
+
+Every celebration modal — win, call, market published, even a loss — now has a "Share on X" button that opens a prefilled tweet linked back to the market. Loss banners get a "Share Take" option too. When you share, the Flashcast bot verifies your tweet and credits Social Points to your account. SP balances are tracked separately from your call balance and live on your profile.
+
+This is the simplest version of what we've been building toward: every conviction on the record. Every call you make now has a receipt that travels with you across the internet.
+
+Comments are live on every market
+Every market now has a working comments section. Post, react in real time, delete your own. Comments go through automated moderation — anything our system flags as harmful is hidden from other readers, but you'll still see your own comment marked as hidden so you know what happened.
+
+Market creation got way smarter
+Smarter duplicate detection. Markets that are structurally the same — same asset, same target, same timeframe — are caught before creation. No more "Will BTC hit 100K by Friday" appearing twice.
+Pick-one questions instead of chip walls. When Flashy asks follow-up questions, they appear as a clean radio-button form you fill out all at once, with an "Other..." option for things the list didn't cover.
+Flashy's replies render properly. Bold, lists, links — all formatted instead of raw markdown.
+
+Messages can't vanish mid-thought. The input disables while Flashy is typing — no more silent swallowing.
+Drafts survive reloads. Your in-progress conversation and partial market are cached locally. Reload the page and pick up where you left off.
+
+Markets that resolve cleanly
+Resolved markets always show the result. Some settled markets were missing the YES/NO banner because their internal status hadn't caught up. The page now shows resolution the moment it exists, regardless of the status label.
+
+Charts work with one data point. Markets with a single price tick used to show blank charts. Now they display a YES/NO bar chart that switches to a line chart once more data flows in.
+
+Structured market context. The plain paragraph under "Market Context" is now a scannable info card with labeled rows for source, asset, target, observed value at creation, and close time — each with colored badges.
+Call selection stays put. Picking NO and typing an amount no longer flips you to YES when the price ticks behind you.
+
+Profiles, activity, leaderboard
+Market cards on your profile are clickable. Open Positions, Created, and Resolved tabs all link through to the market page.
+Usernames in market activity. The Activity tab and Top Holders leaderboard show real names and avatars instead of truncated IDs.
+
+Profile data loads correctly. Reloading a profile page no longer shows a stale "anonymous, level 1" snapshot before the real data fills in. Tapping a profile from the market page renders on first try, not after a refresh.
+See past rank 10 on the leaderboard. Pagination was hidden because the backend wasn't reporting a total. The leaderboard now loads the top 100 and paginates client-side.
+
+Sports Expert tracks correctly. The achievement was counting every call, not just sports calls. Progress recalculated.
+Balance and XP stay fresh. Coins and level no longer stick on the value loaded at sign-in.
+
+Desktop follow button reflects reality. The follow / unfollow button was stuck showing "Follow" even after you'd followed someone. Fixed across desktop and mobile.
+Mobile
+Search icon works in the mobile market menu. Tapping it opens search and takes you to results.
+Call bar no longer covers the bottom nav. The fixed call bar on the market page was overlapping content behind the bottom navigation. Fixed.
+
+"I Called It" card appears on every winning market. Win cards and the "You Won" banner were missing on pari-mutuel markets. Now they show regardless of market type.
+Behind the scenes
+
+Most of this is invisible to you. But it's what makes the product not fall apart when 10,000 people walk in next week.
+Continuous browser smoke tests. Every pull request now runs an automated browser pass against the web app — home, markets, leaderboard, docs, 404 — so regressions on the main user-facing surfaces are caught before they ship.
+Comment moderation infrastructure. Comments flow through an asynchronous moderation pipeline backed by Google Cloud Natural Language. Per-market and per-user rate limits prevent spam.
+
+Deduplication infrastructure. A new structural deduplication system ensures each resolver plugin defines what makes a market unique, preventing duplicates at the database level.
+CORS fix on the web app. A cross-origin issue blocking certain requests has been resolved.
+
+
+What's next
+
+Bonus Round runs 7 days. 20 testers, hand-picked, finishing the job. Every bug they find in the next week is a bug 10,000 people won't hit when the gate opens.
+After this, no more waves. The world walks in.
+If you're reading this from the outside — get ready!

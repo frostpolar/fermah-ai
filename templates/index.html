@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Fermah AI</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Fermah AI Assistant</h1>
+
+    <div class="images">
+
+        <img src="{{ url_for('static', filename='image1.webp') }}">
+
+        <img src="{{ url_for('static', filename='image2.webp') }}">
+
+        <img src="{{ url_for('static', filename='image3.webp') }}">
+
+    </div>
+
+    <div id="chat-box"></div>
+
+    <form id="chat-form">
+
+        <input
+            id="question"
+            type="text"
+            placeholder="Ask Fermah AI..."
+            autocomplete="off"
+            required>
+
+        <button type="submit">
+            Send
+        </button>
+
+    </form>
+
+    <footer>
+
+        Powered by Fermah Knowledge Base
+
+    </footer>
+
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+
+</html>
