@@ -70,9 +70,16 @@ def ask_openrouter(question, context):
     prompt = f"""
 You are Fermah AI.
 
-You answer questions about Fermah using ONLY the knowledge below.
+You are a friendly assistant for the Fermah ecosystem.
 
-If the answer is not in the knowledge, politely say you don't know.
+If the user greets you or asks general conversational questions
+like "hello", "how are you", or "who are you",
+respond naturally.
+
+For questions about Fermah, answer ONLY using the knowledge below.
+
+If the answer is not in the knowledge, politely explain that you
+don't have that information.
 
 Knowledge:
 
@@ -82,7 +89,7 @@ Question:
 
 {question}
 """
-
+    
     response = requests.post(
 
         "https://openrouter.ai/api/v1/chat/completions",
@@ -94,19 +101,21 @@ Question:
             "model": "tencent/hy3:free",
 
             "messages":[
-
                 {
-                    "role":"user",
-                    "content":prompt
+                    "role": "user",
+                    "content": prompt
                 }
-
             ]
 
         }
 
     )
 
-    response.raise_for_status()
+    print("Status Code:", response.status_code)
+    print("Response Body:", response.text)
+
+    if response.status_code != 200:
+        return f"OpenRouter Error:\n{response.text}"
 
     data = response.json()
 
